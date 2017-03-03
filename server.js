@@ -1,25 +1,36 @@
-// configuration =================
-var express  = require('express');
-//var fs = require('fs');
-//var templateFile = 'client/index.html';
-//var template = fs.readFileSync(templateFile);
-var app      = express();
-app.use(express.static(__dirname + '/client'));
-// listen (start app with node server.js)
+var cc       = require('config-multipaas'),
+    finalhandler= require('finalhandler'),
+    http     = require("http"),
+    Router       = require('router'),
+    fs = require('fs'),
+    serveStatic       = require("serve-static");
 
-var port = process.env.PORT || process.env.OPENSHIFT_NODEJS_PORT || 8080,
-   ip   = process.env.IP || process.env.OPENSHIFT_NODEJS_IP || '127.0.0.1';
-    
-// error handling
-app.use(function(err, req, res, next){
-  console.error(err.stack);
-  res.status(500).send('Something bad happened!');
-});    
+var config   = cc();
+var app      = Router()
 
-app.get('/', function(req, res) {
-    res.redirectTo('client/index.html');
+// Serve up public/ftp folder 
+app.use(serveStatic('client'))
+
+// Routes
+app.get("/status", function (req, res) {
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.end("{status: 'ok'}\n")
+})
+
+app.get("/", function (req, res) {
+  var index = fs.readFileSync(__dirname + '/client/index.html')
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.end(index.toString())
+})
+
+// Create server 
+var server = http.createServer(function(req, res){
+  var done = finalhandler(req, res)
+  app(req, res, done)
+})
+
+server.listen(config.get('PORT'), config.get('IP'), function () {
+  console.log( "Listening on " + config.get('IP') + ", port " + config.get('PORT') )
 });
-
-
-app.listen(port,ip);
-console.log('Server running on http://%s:%s', port,ip);
